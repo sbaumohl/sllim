@@ -71,3 +71,6 @@ for adjective in ["clearer", "more expressive", "fewer"]:
 * TODO: Allow easy estimate
 
 * TODO: Allow easy logging
+
+* TODO: Make agnostic of providers (OpenAI, Cohere, etc.)
+    - log messaged should be prefixed by provider 

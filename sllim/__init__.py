@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import time
-from contextlib import contextmanager
 from itertools import zip_longest
 from multiprocessing import Pool
 from threading import Thread
@@ -17,6 +16,8 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion
 from openai.types import Completion
 
+from .cache_management import cache, load_cache
+from .file_writing import try_make, try_open
 
 LOCAL_CACHE = {}
 logging.basicConfig(level=logging.INFO)
@@ -102,88 +103,37 @@ def reset_token_counts():
     prompt_tokens, completion_tokens = 0, 0
 
 
-def try_make(folder_name):
-    try:
-        os.makedirs(folder_name, exist_ok=True)
-    except Exception:
-        logger.info(f"Cannot create folder {folder_name}")
-
-
-class fake_file:
-    def write(self, *args, **kwargs):
-        pass
-
-    def close(self, *args, **kwargs):
-        pass
-
-    def read(self, *args, **kwargs):
-        return "{}"
-
-
-@contextmanager
-def try_open(filename, mode="r"):
-    try:
-        f = open(filename, mode, encoding="utf-8")
-    except Exception:
-        f = fake_file()
-
-    try:
-        yield f
-
-    finally:
-        f.close()
-
-
-def cache(fn):
-    folder_name = ".cache"
-    cache_file = os.path.join(folder_name, f"{fn.__name__}.json")
-    if not os.path.exists(cache_file):
-        try_make(folder_name)
-
-    # Load from cache
-    with try_open(cache_file) as w:
-        cache = json.load(w)
-
-    def wrapper(*args, **kwargs):
-        if kwargs.get("nocache", False):
-            kwargs.pop("nocache", None)
-            return fn(*args, **kwargs)
-
-        key = str(args + tuple(kwargs.items()))
-        if key not in cache:
-            res = fn(*args, **kwargs)
-            cache[key] = res
-            with try_open(cache_file, "w") as w:
-                json.dump(cache, w)
-        return cache[key]
-
-    return wrapper
-
-
 def catch(fn):
-    backoff = 0
+    """
+    Function annotation that will wait re-attempt an API call to OpenAI.
+
+    Raises:
+        openai.RateLimitError: After 10 rate-limiting errors.
+        openai.APIStatusError: If a non-500 HTTP code is returned or 10 failed attempts.
+    """
+    attempts = 0
 
     def wrapper(*args, **kwargs):
-        nonlocal backoff
+        nonlocal attempts
         try:
             return fn(*args, **kwargs)
         except openai.RateLimitError as e:
             logger.info("Rate limit error")
-            backoff += 1
-            if backoff > 9:
+            attempts += 1
+            if attempts > 9:
                 raise e
-            time.sleep(min(2**backoff, 60))
+            time.sleep(min(2**attempts, 60))
             return wrapper(*args, **kwargs)
         except openai.APIStatusError as e:
             logger.info("API Error: " + str(e))
-            backoff += 1
-            if e.code and int(e.code) >= 500 and backoff <= 9:
-                time.sleep(min(2**backoff, 60))
+            attempts += 1
+            if e.code and int(e.code) >= 500 and attempts <= 9:
+                time.sleep(min(2**attempts, 60))
                 return wrapper(*args, **kwargs)
             else:
                 raise e
         finally:
-            backoff = 0
+            attempts = 0
 
     return wrapper
 
@@ -388,37 +338,6 @@ def estimate(messages_or_prompt: Prompt, model="gpt-3.5-turbo"):
         "text-davinci-002": 0.012,
     }
     return {"tokens": total, "cost": total * model_cost.get(model) / 1000}
-
-
-def load_cache(base, t):
-    global LOCAL_CACHE
-
-    folder_name = ".cache"
-    cache_file = os.path.join(folder_name, f"{base}.json")
-    if not os.path.exists(cache_file):
-        try_make(folder_name)
-
-    # Load from cache
-    with try_open(cache_file) as w:
-        cache = json.load(w)
-
-    LOCAL_CACHE = cache.get(t, {})
-
-
-def check_cache(base, t, c):
-    folder_name = ".cache"
-    cache_file = os.path.join(folder_name, f"{base}.json")
-    if not os.path.exists(cache_file):
-        try_make(folder_name)
-
-    # Load from cache
-    with try_open(cache_file) as w:
-        cache = json.load(w)
-
-    if t in cache and c in cache[t]:
-        return cache[t][c]
-
-    return None
 
 
 def save_tmp_cache(base, t, c, result):
