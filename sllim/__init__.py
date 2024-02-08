@@ -105,7 +105,7 @@ def reset_token_counts():
 
 def catch(fn):
     """
-    Function annotation that will wait re-attempt an API call to OpenAI.
+    Function annotation that will wait and re-attempt an API call to OpenAI.
 
     Raises:
         openai.RateLimitError: After 10 rate-limiting errors.
