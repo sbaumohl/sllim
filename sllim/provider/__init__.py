@@ -1,4 +1,6 @@
-import logging, re
+import logging
+import re
+import json
 from typing import Optional, TypeVar, TypedDict, Callable
 from abc import ABC
 from itertools import zip_longest
@@ -14,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 class Message(TypedDict):
     role: str
     content: str
@@ -24,20 +27,42 @@ class FunctionT(TypedDict):
     description: str
     parameters: dict[str, dict[str, str | dict]]
 
+
 Prompt = TypeVar("Prompt", str, list[Message])
 
+
 class Provider(ABC):
+    def __init__(self) -> None:        
+        super().__init__()
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+    
     def call():
         pass
-    
+
     def chat():
         pass
-    
+
     def complete():
         pass
-    
+
     def embed():
         pass
+
+API_PARAMS = dict(
+    model="",
+    deployment_id=None,
+    max_tokens=256,
+    temperature=1,
+    top_p=1,
+    n=1,
+    stop=None,
+    presence_penalty=0,
+    frequency_penalty=0,
+    best_of=1,
+    logprobs=None,
+    logit_bias=None,
+)
 
 
 def mp_call(args):

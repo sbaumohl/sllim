@@ -1,9 +1,11 @@
-import os, logging
+import os
+import logging
 from contextlib import contextmanager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 
 def try_make(folder_name: str):
     """Attempt to create folder, and log if there is a failure to do so.
@@ -31,7 +33,7 @@ class fake_file:
 @contextmanager
 def try_open(filename: str, mode="r"):
     """Attempts to read a file, returning a prop file should the file fail to open.
-    After opening, it yields file to the caller, and closes the file when finished. 
+    After opening, it yields file to the caller, and closes the file when finished.
 
     Args:
         filename str: file to attempt to open

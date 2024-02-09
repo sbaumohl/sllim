@@ -1,7 +1,10 @@
-import os, json
+import os
+import json
+import glob
 from .file_writing import try_make, try_open
 
 folder_name = ".cache"
+
 
 def cache(fn):
     """
@@ -31,6 +34,7 @@ def cache(fn):
 
     return wrapper
 
+
 def check_cache(base, t, c):
     cache_file = os.path.join(folder_name, f"{base}.json")
     if not os.path.exists(cache_file):
@@ -45,6 +49,7 @@ def check_cache(base, t, c):
 
     return None
 
+
 def load_cache(base, t):
     global LOCAL_CACHE
 
@@ -57,3 +62,25 @@ def load_cache(base, t):
         cache = json.load(w)
 
     LOCAL_CACHE = cache.get(t, {})
+
+
+def collate_caches(function_name):
+    folder_name = ".cache"
+    cache_file = os.path.join(folder_name, f"{function_name}.json")
+    if not os.path.exists(cache_file):
+        try_make(folder_name)
+
+    with try_open(cache_file) as w:
+        cache = json.load(w)
+
+    for f in glob.glob(os.path.join(folder_name, f"{function_name}.*.tmp.json")):
+        with try_open(f) as w:
+            tmp_cache = json.load(w)
+            key = list(tmp_cache.keys())[0]
+            if key not in cache:
+                cache[key] = {}
+            cache[key].update(tmp_cache[key])
+        os.remove(f)
+
+    with try_open(cache_file, "w") as w:
+        json.dump(cache, w)
