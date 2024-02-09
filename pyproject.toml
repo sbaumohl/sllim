@@ -7,10 +7,11 @@ readme = "README.md"
 homepage = "https://github.com/kpister/sllim"
 
 [tool.poetry.dependencies]
-python = ">= 3.9"
+python = ">= 3.9,<4.0"
 openai = ">= 1.2.0"
 tiktoken = ">= 0.5.1"
 pyspellchecker = ">= 0.7.2"
+cohere = "^4.46"
 
 [tool.poetry.scripts]
 check = "sllim.check:run"
